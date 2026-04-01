@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { EditablePageTitle } from "@/components/EditablePageTitle";
 import { getPageByIdForUser } from "@/lib/pages-server";
 import { PageEditor } from "@/components/PageEditor";
 
@@ -14,7 +15,7 @@ export default async function PageView({
 
   return (
     <div className="flex h-full w-full flex-col gap-4">
-      <h1 className="text-2xl font-semibold tracking-tight">{page.title}</h1>
+      <EditablePageTitle pageId={page.id} initialTitle={page.title} />
       <PageEditor key={page.id} pageId={page.id} initialContent={page.content} />
     </div>
   );
