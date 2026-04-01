@@ -20,6 +20,7 @@ export type Database = {
           content: Json;
           created_at: string;
           updated_at: string;
+          position: number;
         };
         Insert: {
           id?: string;
@@ -31,6 +32,7 @@ export type Database = {
           content?: Json;
           created_at?: string;
           updated_at?: string;
+          position?: number;
         };
         Update: {
           id?: string;
@@ -42,6 +44,7 @@ export type Database = {
           content?: Json;
           created_at?: string;
           updated_at?: string;
+          position?: number;
         };
         Relationships: [
           {

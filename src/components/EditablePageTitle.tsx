@@ -1,8 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
-import { updatePageTitle } from "@/lib/pages";
+import { resolveAndUpdatePageTitle } from "@/lib/pages";
 
 const titleTypography =
   "w-full max-w-full bg-transparent text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50";
@@ -18,7 +17,6 @@ export function EditablePageTitle({
   pageId: string;
   initialTitle: string;
 }) {
-  const router = useRouter();
   const [title, setTitle] = useState(initialTitle);
   const [editing, setEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -46,10 +44,9 @@ export function EditablePageTitle({
       return;
     }
 
-    setTitle(next);
     try {
-      await updatePageTitle(pageId, next);
-      router.refresh();
+      const resolved = await resolveAndUpdatePageTitle(pageId, next);
+      setTitle(resolved);
     } catch {
       setTitle(initialTitle);
     }

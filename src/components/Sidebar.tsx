@@ -2,7 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
-import { createPage, deletePage, listPagesTree, updatePageTitle } from "@/lib/pages";
+import {
+  createPage,
+  deletePage,
+  listPagesTree,
+  movePage,
+  resolveAndUpdatePageTitle,
+} from "@/lib/pages";
 import type { PageNode } from "@/lib/pages";
 import { NewPageButton } from "@/components/NewPageButton";
 import { PageTree } from "@/components/PageTree";
@@ -17,9 +23,13 @@ export function Sidebar() {
   const [tree, setTree] = useState<PageNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [pendingEditPageId, setPendingEditPageId] = useState<string | null>(null);
 
-  async function refresh() {
-    setLoading(true);
+  async function loadTree(opts?: { initial?: boolean }) {
+    const initial = opts?.initial ?? false;
+    if (initial) {
+      setLoading(true);
+    }
     setError(null);
     try {
       const next = await listPagesTree();
@@ -27,25 +37,25 @@ export function Sidebar() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load pages");
     } finally {
-      setLoading(false);
+      if (initial) {
+        setLoading(false);
+      }
     }
   }
 
   useEffect(() => {
-    void refresh();
+    void loadTree({ initial: true });
   }, []);
 
   return (
     <aside className="flex h-dvh w-72 flex-col border-r border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="flex items-center justify-between px-2 py-2">
-        <div className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-          Pages
-        </div>
+      <div className="flex items-center px-2 py-2">
         <NewPageButton
-          label="+"
+          label="New Page"
           onClick={async () => {
-            await createPage({ parent_id: null });
-            await refresh();
+            const page = await createPage({ parent_id: null });
+            setPendingEditPageId(page.id);
+            await loadTree();
           }}
         />
       </div>
@@ -63,17 +73,28 @@ export function Sidebar() {
           <PageTree
             nodes={tree}
             activePageId={activePageId}
+            pendingEditPageId={pendingEditPageId}
             onCreateChild={async (parentId) => {
-              await createPage({ parent_id: parentId });
-              await refresh();
+              const page = await createPage({ parent_id: parentId });
+              setPendingEditPageId(page.id);
+              await loadTree();
             }}
             onRename={async (pageId, title) => {
-              await updatePageTitle(pageId, title);
-              await refresh();
+              await resolveAndUpdatePageTitle(pageId, title);
+              setPendingEditPageId((p) => (p === pageId ? null : p));
+              await loadTree();
+            }}
+            onClearPendingEdit={(pageId) => {
+              setPendingEditPageId((p) => (p === pageId ? null : p));
             }}
             onDelete={async (pageId) => {
               await deletePage(pageId);
-              await refresh();
+              setPendingEditPageId((p) => (p === pageId ? null : p));
+              await loadTree();
+            }}
+            onMovePage={async (draggedId, target) => {
+              await movePage(draggedId, target);
+              await loadTree();
             }}
           />
         )}
@@ -81,4 +102,3 @@ export function Sidebar() {
     </aside>
   );
 }
-
