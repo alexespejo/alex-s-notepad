@@ -21,14 +21,24 @@ export function EditablePageTitle({
   const [draft, setDraft] = useState(initialTitle);
   const [editing, setEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  /** Title when this edit session started; used for Escape, commit no-op, and failed save revert. */
+  const baselineAtEditStartRef = useRef(initialTitle);
 
   const syncedTitle = usePageTitlesStore((s) => s.titlesByPageId[pageId] ?? initialTitle);
 
+  // Re-seed only when navigating to a different page. Do not depend on
+  // `initialTitle` for the same pageId — RSC props can lag behind client renames
+  // and would overwrite the zustand title the sidebar/editor already updated.
   useEffect(() => {
-    usePageTitlesStore.getState().setPageTitle(pageId, initialTitle);
-    setDraft(initialTitle);
+    const store = usePageTitlesStore.getState();
+    const existing = store.titlesByPageId[pageId];
+    const seed = existing !== undefined ? existing : initialTitle;
+    store.setPageTitle(pageId, seed);
+    setDraft(seed);
+    baselineAtEditStartRef.current = seed;
     setEditing(false);
-  }, [pageId, initialTitle]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- initialTitle is read once per pageId transition only
+  }, [pageId]);
 
   useEffect(() => {
     if (!editing) {
@@ -46,12 +56,13 @@ export function EditablePageTitle({
 
   async function commit() {
     const next = draft.trim() || "Untitled";
+    const baselineNorm =
+      baselineAtEditStartRef.current.trim() || "Untitled";
     setEditing(false);
-    const prevRaw = usePageTitlesStore.getState().titlesByPageId[pageId] ?? initialTitle;
-    const prev = prevRaw.trim() || "Untitled";
 
-    if (next === prev) {
-      setDraft(prevRaw);
+    if (next === baselineNorm) {
+      usePageTitlesStore.getState().setPageTitle(pageId, next);
+      setDraft(next);
       return;
     }
 
@@ -59,8 +70,10 @@ export function EditablePageTitle({
       const resolved = await resolveAndUpdatePageTitle(pageId, next);
       usePageTitlesStore.getState().setPageTitle(pageId, resolved);
       setDraft(resolved);
+      baselineAtEditStartRef.current = resolved;
     } catch {
-      setDraft(prevRaw);
+      usePageTitlesStore.getState().setPageTitle(pageId, baselineAtEditStartRef.current);
+      setDraft(baselineAtEditStartRef.current);
     }
   }
 
@@ -70,7 +83,11 @@ export function EditablePageTitle({
         ref={inputRef}
         type="text"
         value={draft}
-        onChange={(e) => setDraft(e.target.value)}
+        onChange={(e) => {
+          const v = e.target.value;
+          setDraft(v);
+          usePageTitlesStore.getState().setPageTitle(pageId, v);
+        }}
         onBlur={() => void commit()}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
@@ -78,7 +95,11 @@ export function EditablePageTitle({
             (e.currentTarget as HTMLInputElement).blur();
           }
           if (e.key === "Escape") {
-            setDraft(syncedTitle);
+            usePageTitlesStore.getState().setPageTitle(
+              pageId,
+              baselineAtEditStartRef.current,
+            );
+            setDraft(baselineAtEditStartRef.current);
             setEditing(false);
           }
         }}
@@ -91,7 +112,9 @@ export function EditablePageTitle({
   return (
     <h1
       onDoubleClick={() => {
-        setDraft(syncedTitle);
+        const b = usePageTitlesStore.getState().titlesByPageId[pageId] ?? initialTitle;
+        baselineAtEditStartRef.current = b;
+        setDraft(b);
         setEditing(true);
       }}
       className={titleDisplayClassName}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -28,7 +28,7 @@ export function Sidebar() {
   const [error, setError] = useState<string | null>(null);
   const [pendingEditPageId, setPendingEditPageId] = useState<string | null>(null);
 
-  async function loadTree(opts?: { initial?: boolean }) {
+  const loadTree = useCallback(async (opts?: { initial?: boolean }) => {
     const initial = opts?.initial ?? false;
     if (initial) {
       setLoading(true);
@@ -45,11 +45,20 @@ export function Sidebar() {
         setLoading(false);
       }
     }
-  }
+  }, []);
 
   useEffect(() => {
     void loadTree({ initial: true });
-  }, []);
+  }, [loadTree]);
+
+  const skipPathnameRefreshRef = useRef(true);
+  useEffect(() => {
+    if (skipPathnameRefreshRef.current) {
+      skipPathnameRefreshRef.current = false;
+      return;
+    }
+    void loadTree();
+  }, [pathname, loadTree]);
 
   return (
     <aside className="flex h-dvh w-72 flex-col border-r border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-950">

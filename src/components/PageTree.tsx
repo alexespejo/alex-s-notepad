@@ -12,7 +12,9 @@ import {
   type DragStartEvent,
 } from "@dnd-kit/core";
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+// Remove router import
+// import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { MovePlacement, PageNode } from "@/lib/pages";
 import { usePageTitlesStore } from "@/lib/page-titles-store";
 
@@ -48,7 +50,8 @@ function TreeRow({
   onDelete: (pageId: string) => void;
   onClearPendingEdit?: (pageId: string) => void;
 }) {
-  const router = useRouter();
+  // Remove router
+  // const router = useRouter();
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(() => pendingEditPageId === node.id);
   const [title, setTitle] = useState(node.title);
@@ -152,43 +155,45 @@ function TreeRow({
             {hasChildren ? (open ? "▾" : "▸") : "•"}
           </button>
 
-          <button
-            type="button"
-            onClick={() => router.push(`/app/${node.id}`)}
-            className="min-w-0 flex-1 truncate rounded-none text-left"
-            title={resolvedLabel}
-          >
-            {editing ? (
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                onBlur={() => {
+          {/* Rewrite for Link here */}
+          {editing ? (
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              onBlur={() => {
+                setEditing(false);
+                const next = title.trim() || "Untitled";
+                const baseline =
+                  usePageTitlesStore.getState().titlesByPageId[node.id] ?? node.title;
+                if (next !== baseline) {
+                  void onRename(node.id, next);
+                } else {
+                  onClearPendingEdit?.(node.id);
+                }
+                setTitle(next);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
+                if (e.key === "Escape") {
                   setEditing(false);
-                  const next = title.trim() || "Untitled";
-                  const baseline =
-                    usePageTitlesStore.getState().titlesByPageId[node.id] ?? node.title;
-                  if (next !== baseline) {
-                    void onRename(node.id, next);
-                  } else {
-                    onClearPendingEdit?.(node.id);
-                  }
-                  setTitle(next);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
-                  if (e.key === "Escape") {
-                    setEditing(false);
-                    setTitle(usePageTitlesStore.getState().titlesByPageId[node.id] ?? node.title);
-                    onClearPendingEdit?.(node.id);
-                  }
-                }}
-                autoFocus
-                className="w-full rounded-sm bg-white px-2 py-0.5 text-sm text-zinc-950 outline-none ring-1 ring-zinc-300 dark:bg-black dark:text-zinc-50 dark:ring-zinc-700"
-              />
-            ) : (
+                  setTitle(usePageTitlesStore.getState().titlesByPageId[node.id] ?? node.title);
+                  onClearPendingEdit?.(node.id);
+                }
+              }}
+              autoFocus
+              className="w-full rounded-sm bg-white px-2 py-0.5 text-sm text-zinc-950 outline-none ring-1 ring-zinc-300 dark:bg-black dark:text-zinc-50 dark:ring-zinc-700"
+            />
+          ) : (
+            <Link
+              href={`/app/${node.id}`}
+              className="min-w-0 flex-1 truncate rounded-none text-left"
+              title={resolvedLabel}
+              // Next Link forwards as <a> so tab-index for accessibility is on by default
+              prefetch={false}
+            >
               <span>{resolvedLabel}</span>
-            )}
-          </button>
+            </Link>
+          )}
 
           <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity duration-150 pointer-events-none group-hover:pointer-events-auto group-hover:opacity-100">
             <button

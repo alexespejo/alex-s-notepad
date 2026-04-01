@@ -46,3 +46,22 @@ button[aria-disabled="true"],
 [role="button"][aria-disabled="true"] {
   cursor: not-allowed;
 }
+
+/* BlockNote: Notion-style links (bold + underline + tint). */
+.bn-editor a[href] {
+  font-weight: 600;
+  text-decoration: underline;
+  text-underline-offset: 0.12em;
+  text-decoration-skip-ink: none;
+  color: #2563eb;
+}
+
+@media (prefers-color-scheme: dark) {
+  .bn-editor a[href] {
+    color: #93c5fd;
+  }
+}
+
+.bn-editor a[href]:hover {
+  opacity: 0.88;
+}
