@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
 import {
   createPage,
   deletePage,
@@ -10,10 +11,12 @@ import {
   resolveAndUpdatePageTitle,
 } from "@/lib/pages";
 import type { PageNode } from "@/lib/pages";
+import { usePageTitlesStore } from "@/lib/page-titles-store";
 import { NewPageButton } from "@/components/NewPageButton";
 import { PageTree } from "@/components/PageTree";
 
 export function Sidebar() {
+  const router = useRouter();
   const pathname = usePathname();
   const activePageId = useMemo(() => {
     const m = pathname?.match(/^\/app\/([^/]+)/);
@@ -34,6 +37,7 @@ export function Sidebar() {
     try {
       const next = await listPagesTree();
       setTree(next);
+      usePageTitlesStore.getState().replaceTitlesFromTree(next);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to load pages");
     } finally {
@@ -49,12 +53,19 @@ export function Sidebar() {
 
   return (
     <aside className="flex h-dvh w-72 flex-col border-r border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="flex items-center px-2 py-2">
+      <div className="flex flex-col gap-2 px-2 py-2">
+        <Link
+          href="/"
+          className="text-sm font-medium text-zinc-700 hover:text-zinc-950 dark:text-zinc-300 dark:hover:text-zinc-50"
+        >
+          Home overview
+        </Link>
         <NewPageButton
           label="New Page"
           onClick={async () => {
             const page = await createPage({ parent_id: null });
             setPendingEditPageId(page.id);
+            usePageTitlesStore.getState().setPageTitle(page.id, page.title);
             await loadTree();
           }}
         />
@@ -77,10 +88,12 @@ export function Sidebar() {
             onCreateChild={async (parentId) => {
               const page = await createPage({ parent_id: parentId });
               setPendingEditPageId(page.id);
+              usePageTitlesStore.getState().setPageTitle(page.id, page.title);
               await loadTree();
             }}
             onRename={async (pageId, title) => {
-              await resolveAndUpdatePageTitle(pageId, title);
+              const resolved = await resolveAndUpdatePageTitle(pageId, title);
+              usePageTitlesStore.getState().setPageTitle(pageId, resolved);
               setPendingEditPageId((p) => (p === pageId ? null : p));
               await loadTree();
             }}
@@ -88,9 +101,13 @@ export function Sidebar() {
               setPendingEditPageId((p) => (p === pageId ? null : p));
             }}
             onDelete={async (pageId) => {
+              const wasActive = activePageId === pageId;
               await deletePage(pageId);
               setPendingEditPageId((p) => (p === pageId ? null : p));
               await loadTree();
+              if (wasActive) {
+                router.push("/");
+              }
             }}
             onMovePage={async (draggedId, target) => {
               await movePage(draggedId, target);

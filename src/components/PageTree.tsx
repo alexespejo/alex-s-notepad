@@ -14,6 +14,7 @@ import {
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { MovePlacement, PageNode } from "@/lib/pages";
+import { usePageTitlesStore } from "@/lib/page-titles-store";
 
 const dragId = (pageId: string) => `drag|${pageId}`;
 const dropId = (pageId: string, placement: MovePlacement) => `drop|${pageId}|${placement}`;
@@ -51,10 +52,14 @@ function TreeRow({
   const [open, setOpen] = useState(true);
   const [editing, setEditing] = useState(() => pendingEditPageId === node.id);
   const [title, setTitle] = useState(node.title);
+  const zTitle = usePageTitlesStore((s) => s.titlesByPageId[node.id]);
+  const resolvedLabel = zTitle ?? node.title;
 
   useEffect(() => {
-    setTitle(node.title);
-  }, [node.title]);
+    if (!editing) {
+      setTitle(resolvedLabel);
+    }
+  }, [resolvedLabel, editing]);
 
   useEffect(() => {
     if (pendingEditPageId === node.id) {
@@ -151,7 +156,7 @@ function TreeRow({
             type="button"
             onClick={() => router.push(`/app/${node.id}`)}
             className="min-w-0 flex-1 truncate rounded-none text-left"
-            title={node.title}
+            title={resolvedLabel}
           >
             {editing ? (
               <input
@@ -160,7 +165,9 @@ function TreeRow({
                 onBlur={() => {
                   setEditing(false);
                   const next = title.trim() || "Untitled";
-                  if (next !== node.title) {
+                  const baseline =
+                    usePageTitlesStore.getState().titlesByPageId[node.id] ?? node.title;
+                  if (next !== baseline) {
                     void onRename(node.id, next);
                   } else {
                     onClearPendingEdit?.(node.id);
@@ -171,7 +178,7 @@ function TreeRow({
                   if (e.key === "Enter") (e.currentTarget as HTMLInputElement).blur();
                   if (e.key === "Escape") {
                     setEditing(false);
-                    setTitle(node.title);
+                    setTitle(usePageTitlesStore.getState().titlesByPageId[node.id] ?? node.title);
                     onClearPendingEdit?.(node.id);
                   }
                 }}
@@ -179,7 +186,7 @@ function TreeRow({
                 className="w-full rounded-sm bg-white px-2 py-0.5 text-sm text-zinc-950 outline-none ring-1 ring-zinc-300 dark:bg-black dark:text-zinc-50 dark:ring-zinc-700"
               />
             ) : (
-              <span>{node.title}</span>
+              <span>{resolvedLabel}</span>
             )}
           </button>
 
@@ -194,7 +201,10 @@ function TreeRow({
             </button>
             <button
               type="button"
-              onClick={() => setEditing(true)}
+              onClick={() => {
+                setTitle(resolvedLabel);
+                setEditing(true);
+              }}
               className="rounded px-1.5 py-1 text-xs text-zinc-600 transition-colors duration-150 hover:bg-zinc-300/70 dark:text-zinc-300 dark:hover:bg-zinc-800"
               title="Rename"
             >
@@ -294,6 +304,9 @@ export function PageTree({
   const dragPageId =
     activeDragId !== null && activeDragId.startsWith("drag|") ? activeDragId.slice(5) : null;
   const activeNode = dragPageId ? findNodeById(stableNodes, dragPageId) : null;
+  const overlayTitle = usePageTitlesStore((s) =>
+    activeNode ? s.titlesByPageId[activeNode.id] ?? activeNode.title : "",
+  );
 
   if (!stableNodes.length) {
     return (
@@ -326,7 +339,7 @@ export function PageTree({
       <DragOverlay dropAnimation={null}>
         {activeNode ? (
           <div className="flex max-w-56 items-center gap-2 rounded-md border border-zinc-200 bg-white px-2 py-1 text-sm shadow-md dark:border-zinc-700 dark:bg-zinc-900">
-            <span className="truncate font-medium text-zinc-900 dark:text-zinc-100">{activeNode.title}</span>
+            <span className="truncate font-medium text-zinc-900 dark:text-zinc-100">{overlayTitle}</span>
           </div>
         ) : null}
       </DragOverlay>

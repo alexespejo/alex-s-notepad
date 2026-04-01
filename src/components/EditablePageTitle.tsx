@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { resolveAndUpdatePageTitle } from "@/lib/pages";
+import { usePageTitlesStore } from "@/lib/page-titles-store";
 
 const titleTypography =
   "w-full max-w-full bg-transparent text-2xl font-semibold tracking-tight text-zinc-950 dark:text-zinc-50";
@@ -17,14 +18,23 @@ export function EditablePageTitle({
   pageId: string;
   initialTitle: string;
 }) {
-  const [title, setTitle] = useState(initialTitle);
+  const [draft, setDraft] = useState(initialTitle);
   const [editing, setEditing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const syncedTitle = usePageTitlesStore((s) => s.titlesByPageId[pageId] ?? initialTitle);
+
   useEffect(() => {
-    setTitle(initialTitle);
+    usePageTitlesStore.getState().setPageTitle(pageId, initialTitle);
+    setDraft(initialTitle);
     setEditing(false);
   }, [pageId, initialTitle]);
+
+  useEffect(() => {
+    if (!editing) {
+      setDraft(syncedTitle);
+    }
+  }, [syncedTitle, editing]);
 
   useEffect(() => {
     if (editing && inputRef.current) {
@@ -35,20 +45,22 @@ export function EditablePageTitle({
   }, [editing]);
 
   async function commit() {
-    const next = title.trim() || "Untitled";
-    const previous = initialTitle.trim() || "Untitled";
+    const next = draft.trim() || "Untitled";
     setEditing(false);
+    const prevRaw = usePageTitlesStore.getState().titlesByPageId[pageId] ?? initialTitle;
+    const prev = prevRaw.trim() || "Untitled";
 
-    if (next === previous) {
-      setTitle(initialTitle);
+    if (next === prev) {
+      setDraft(prevRaw);
       return;
     }
 
     try {
       const resolved = await resolveAndUpdatePageTitle(pageId, next);
-      setTitle(resolved);
+      usePageTitlesStore.getState().setPageTitle(pageId, resolved);
+      setDraft(resolved);
     } catch {
-      setTitle(initialTitle);
+      setDraft(prevRaw);
     }
   }
 
@@ -57,8 +69,8 @@ export function EditablePageTitle({
       <input
         ref={inputRef}
         type="text"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
         onBlur={() => void commit()}
         onKeyDown={(e) => {
           if (e.key === "Enter") {
@@ -66,7 +78,7 @@ export function EditablePageTitle({
             (e.currentTarget as HTMLInputElement).blur();
           }
           if (e.key === "Escape") {
-            setTitle(initialTitle);
+            setDraft(syncedTitle);
             setEditing(false);
           }
         }}
@@ -78,11 +90,14 @@ export function EditablePageTitle({
 
   return (
     <h1
-      onDoubleClick={() => setEditing(true)}
+      onDoubleClick={() => {
+        setDraft(syncedTitle);
+        setEditing(true);
+      }}
       className={titleDisplayClassName}
       title="Double-click to rename"
     >
-      {title}
+      {syncedTitle}
     </h1>
   );
 }
