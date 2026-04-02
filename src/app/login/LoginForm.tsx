@@ -14,7 +14,7 @@ export function LoginForm() {
 
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(
-    err === "auth" ? "Could not complete sign-in. Try again." : err === "config" ? "App configuration error." : null,
+    err === "auth" ? "Could not complete sign-in. Try again." : err === "config" ? "App configuration error." : err === "unauthorized" ? "This account is not authorized to access this app." : null,
   );
 
   async function signInWithGoogle() {

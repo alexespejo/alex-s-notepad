@@ -36,5 +36,16 @@ export async function GET(request: Request) {
     return NextResponse.redirect(new URL("/login?error=auth", request.url));
   }
 
+  const ALLOWED_EMAILS = ["aespejo102@gmail.com", "abespejo@uci.edu"];
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user?.email || !ALLOWED_EMAILS.includes(user.email)) {
+    await supabase.auth.signOut();
+    return NextResponse.redirect(new URL("/login?error=unauthorized", request.url));
+  }
+
   return NextResponse.redirect(`${origin}${next.startsWith("/") ? next : "/"}`);
 }
